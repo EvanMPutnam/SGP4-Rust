@@ -7,9 +7,7 @@ all relevant source and test files, except a few manual fixes.
 
 This repo may be broken in weird places, may not have idiomatic rust, and is not in an ideal state from a code quality perspective.  One day it may be though...
 
-As of now this library should be mostly complete.  Feel free to make a PR if there is something missing here or if there are any errors.
-
-This is the library that I worked to try and port: [project](https://pypi.org/project/sgp4/).
+As of now this library should be mostly complete.  Feel free to make a PR or raise an issue if there is something missing here or if there are any errors.
 
 ## Usage
 ```rust
