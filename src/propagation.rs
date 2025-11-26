@@ -2,10 +2,10 @@
 // The math and flow closely follow Vallado's C++ code and Brandon Rhodes's
 // Python port, with minimal "clever" Rust-ification.
 
-use std::f64::consts::PI;
-use log::debug;
 use crate::ext::{invjday, jday};
 use crate::io::twoline2satrec;
+use log::debug;
+use std::f64::consts::PI;
 
 pub const DEG2RAD: f64 = PI / 180.0;
 pub const TWOPI: f64 = 2.0 * PI;
@@ -59,8 +59,7 @@ pub fn get_grav_const(whichconst: &str) -> GravConst {
         "wgs72" => {
             let mu = 398600.8_f64;
             let radiusearthkm = 6378.135_f64;
-            let xke = 60.0
-                / (radiusearthkm * radiusearthkm * radiusearthkm / mu).sqrt();
+            let xke = 60.0 / (radiusearthkm * radiusearthkm * radiusearthkm / mu).sqrt();
             let tumin = 1.0 / xke;
             let j2 = 0.001_082_616_f64;
             let j3 = -0.000_002_538_81_f64;
@@ -80,8 +79,7 @@ pub fn get_grav_const(whichconst: &str) -> GravConst {
         "wgs84" => {
             let mu = 398600.5_f64;
             let radiusearthkm = 6378.137_f64;
-            let xke = 60.0
-                / (radiusearthkm * radiusearthkm * radiusearthkm / mu).sqrt();
+            let xke = 60.0 / (radiusearthkm * radiusearthkm * radiusearthkm / mu).sqrt();
             let tumin = 1.0 / xke;
             let j2 = 0.001_082_629_989_05_f64;
             let j3 = -0.000_002_532_153_06_f64;
@@ -278,11 +276,7 @@ impl SatRec {
     ///
     /// `whichconst` is typically "wgs72", "wgs84", or "wgs72old".
     /// This uses opsmode `'i'` (improved) by default.
-    pub fn twoline2rv(
-        line1: &str,
-        line2: &str,
-        whichconst: &str,
-    ) -> SatRec {
+    pub fn twoline2rv(line1: &str, line2: &str, whichconst: &str) -> SatRec {
         // This is the Rust port of Vallado's `twoline2rv` you already have.
         // It fills in all the fields and calls `sgp4init`.
         twoline2satrec(line1, line2, whichconst, 'i').expect("Cannot parse satrec")
@@ -292,6 +286,9 @@ impl SatRec {
     ///
     /// This matches the Python `Satrec.sgp4init()` signature.
     /// `epoch` is in **days since 1950-01-0 00:00 UT** (Vallado SGP4 epoch).
+    /// Instance-style wrapper around the global `sgp4init()` function.
+    /// Matches Python `Satrec.sgp4init()`.
+    /// `epoch` is in days since 1950-01-0 00:00 UT.
     pub fn sgp4init(
         &mut self,
         whichconst: &str,
@@ -308,38 +305,32 @@ impl SatRec {
         no_kozai: f64,
         nodeo: f64,
     ) -> bool {
-        // Mirror the Python helper: break epoch into whole + fraction,
-        // turn it into a Julian Date, and back-fill epoch metadata.
-
+        // Split epoch into whole + fractional days since 1950-01-0
         let whole = epoch.floor();
         let mut fraction = epoch - whole;
         let whole_jd = whole + 2_433_281.5_f64; // 2433281.5
 
-        // If the caller gave an epoch that looks like a TLE-style decimal
-        // (up to 8 digits), respect that precision.
-        if (epoch * 1.0e8).round() == (epoch * 1.0e8) {
+        // If epoch looks like a TLE-style decimal, respect 1e-8 precision
+        if (epoch * 1.0e8).round() == epoch * 1.0e8 {
             fraction = (fraction * 1.0e8).round() / 1.0e8;
         }
 
-        // Store "split" epoch if your struct has these fields.
-        // If you only have a single `jdsatepoch: f64`, you can store
-        // `whole_jd + fraction` there and drop `jdsatepoch_f`.
-        self.jdsatepoch = whole_jd + fraction;
-        self.jdsatepoch_f = fraction;
+        // *** Key difference vs your current code: do NOT add fraction into jdsatepoch ***
+        self.jdsatepoch = whole_jd; // integer JD part
+        self.jdsatepoch_f = fraction; // fractional part
 
-        // Fill epoch year / day-of-year like the Python code does.
+        // Fill epoch year/day-of-year like Python
         let (y, m, d, hr, min, sec) = invjday(whole_jd);
         let jan0 = jday(y, 1, 0, 0, 0, 0.0);
         self.epochyr = (y % 100) as i32;
         self.epochdays = (whole_jd - jan0) + fraction;
 
-        // A few bookkeeping fields for parity with Python.
+        // Basic bookkeeping
         self.classification = 'U';
         self.operationmode = opsmode;
         self.satnum_str = satnum.to_string();
 
-        // Also mirror the element values onto the struct so they are
-        // visible like in the Python object.
+        // Copy element values
         self.bstar = bstar;
         self.ndot = ndot;
         self.nddot = nddot;
@@ -350,22 +341,10 @@ impl SatRec {
         self.no_kozai = no_kozai;
         self.nodeo = nodeo;
 
-        // Call the core Vallado initializer.
+        // Call the core Vallado initializer (same as Python)
         sgp4init(
-            whichconst,
-            opsmode,
-            satnum,
-            epoch,
-            bstar,
-            ndot,
-            nddot,
-            ecco,
-            argpo,
-            inclo,
-            mo,
-            no_kozai,
-            nodeo,
-            self,
+            whichconst, opsmode, satnum, epoch, bstar, ndot, nddot, ecco, argpo, inclo, mo,
+            no_kozai, nodeo, self,
         )
     }
 
@@ -388,9 +367,12 @@ impl SatRec {
     /// Returns `(error_code, r_km, v_km_s)`.
     pub fn sgp4_tsince(&mut self, tsince: f64) -> (i32, [f64; 3], [f64; 3]) {
         let (r, v) = sgp4(self, tsince);
-        dbg!(r);
-        dbg!(v);
-        (self.error, r.expect("Invalid r"), v.expect("Invalid v"))
+        dbg!(tsince, self.error, &self.error_message);
+
+        match (r, v) {
+            (Some(r), Some(v)) => (self.error, r, v),
+            _ => panic!("sgp4 error {}: {:?}", self.error, self.error_message),
+        }
     }
 
     /// Vectorized propagation similar to Python `sgp4_array()`, but using
@@ -407,11 +389,7 @@ impl SatRec {
         jd: &[f64],
         fr: &[f64],
     ) -> (Vec<i32>, Vec<[f64; 3]>, Vec<[f64; 3]>) {
-        assert_eq!(
-            jd.len(),
-            fr.len(),
-            "jd and fr must have the same length"
-        );
+        assert_eq!(jd.len(), fr.len(), "jd and fr must have the same length");
 
         let mut errors = Vec::with_capacity(jd.len());
         let mut rs = Vec::with_capacity(jd.len());
@@ -563,13 +541,13 @@ impl Default for SatRec {
 pub fn dpper(
     satrec: &SatRec, // or &mut SatRec if you mutate it
     inclo: f64,
-    init: char,      // 'y' / 'n'
+    init: char, // 'y' / 'n'
     mut ep: f64,
     mut inclp: f64,
     mut nodep: f64,
     mut argpp: f64,
     mut mp: f64,
-    opsmode: char,   // 'a' or 'i'
+    opsmode: char, // 'a' or 'i'
 ) -> (f64, f64, f64, f64, f64) {
     let e3 = satrec.e3;
     let ee2 = satrec.ee2;
@@ -720,7 +698,89 @@ pub fn dscom(
     inclp: f64,
     nodep: f64,
     np: f64,
-) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+) -> (
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+) {
     let zes = 0.01675_f64;
     let zel = 0.05490_f64;
     let c1ss = 2.986_479_7e-6_f64;
@@ -871,15 +931,11 @@ pub fn dscom(
         z3 = 3.0 * (a3 * a3 + a4 * a4) + z33 * emsq;
         z11 = -6.0 * a1 * a5 + emsq * (-24.0 * x1 * x7 - 6.0 * x3 * x5);
         z12 = -6.0 * (a1 * a6 + a3 * a5)
-            + emsq
-            * (-24.0 * (x2 * x7 + x1 * x8)
-            - 6.0 * (x3 * x6 + x4 * x5));
+            + emsq * (-24.0 * (x2 * x7 + x1 * x8) - 6.0 * (x3 * x6 + x4 * x5));
         z13 = -6.0 * a3 * a6 + emsq * (-24.0 * x2 * x8 - 6.0 * x4 * x6);
         z21 = 6.0 * a2 * a5 + emsq * (24.0 * x1 * x5 - 6.0 * x3 * x7);
         z22 = 6.0 * (a4 * a5 + a2 * a6)
-            + emsq
-            * (24.0 * (x2 * x5 + x1 * x6)
-            - 6.0 * (x4 * x7 + x3 * x8));
+            + emsq * (24.0 * (x2 * x5 + x1 * x6) - 6.0 * (x4 * x7 + x3 * x8));
         z23 = 6.0 * a4 * a6 + emsq * (24.0 * x2 * x6 - 6.0 * x4 * x8);
         z1 = z1 + z1 + betasq * z31;
         z2 = z2 + z2 + betasq * z32;
@@ -954,25 +1010,12 @@ pub fn dscom(
     xh3 = -2.0 * s2 * (z23 - z21);
 
     return (
-        snodm, cnodm, sinim,  cosim, sinomm,
-        cosomm,day,   e3,     ee2,   em,
-        emsq,  gam,   peo,    pgho,  pho,
-        pinco, plo,   rtemsq, se2,   se3,
-        sgh2,  sgh3,  sgh4,   sh2,   sh3,
-        si2,   si3,   sl2,    sl3,   sl4,
-        s1,    s2,    s3,     s4,    s5,
-        s6,    s7,    ss1,    ss2,   ss3,
-        ss4,   ss5,   ss6,    ss7,   sz1,
-        sz2,   sz3,   sz11,   sz12,  sz13,
-        sz21,  sz22,  sz23,   sz31,  sz32,
-        sz33,  xgh2,  xgh3,   xgh4,  xh2,
-        xh3,   xi2,   xi3,    xl2,   xl3,
-        xl4,   nm,    z1,     z2,    z3,
-        z11,   z12,   z13,    z21,   z22,
-        z23,   z31,   z32,    z33,   zmol,
-        zmos
-    )
-
+        snodm, cnodm, sinim, cosim, sinomm, cosomm, day, e3, ee2, em, emsq, gam, peo, pgho, pho,
+        pinco, plo, rtemsq, se2, se3, sgh2, sgh3, sgh4, sh2, sh3, si2, si3, sl2, sl3, sl4, s1, s2,
+        s3, s4, s5, s6, s7, ss1, ss2, ss3, ss4, ss5, ss6, ss7, sz1, sz2, sz3, sz11, sz12, sz13,
+        sz21, sz22, sz23, sz31, sz32, sz33, xgh2, xgh3, xgh4, xh2, xh3, xi2, xi3, xl2, xl3, xl4,
+        nm, z1, z2, z3, z11, z12, z13, z21, z22, z23, z31, z32, z33, zmol, zmos,
+    );
 }
 
 // -----------------------------------------------------------------------------
@@ -1053,7 +1096,39 @@ pub fn dsinit(
     mut xlamo: f64,
     mut xli: f64,
     mut xni: f64,
-) -> (f64, f64, f64, f64, f64, f64, i32, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+) -> (
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    i32,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+) {
     let q22 = 1.7891679e-6_f64;
     let q31 = 2.1460748e-6_f64;
     let q33 = 2.2123015e-7_f64;
@@ -1128,30 +1203,19 @@ pub fn dsinit(
             let (g211, g310, g322, g410, g422, g520);
             if em <= 0.65 {
                 g211 = 3.616 - 13.2470 * em + 16.2900 * emsq_local;
-                g310 =
-                    -19.302 + 117.3900 * em - 228.4190 * emsq_local + 156.5910 * eoc;
-                g322 =
-                    -18.9068 + 109.7927 * em - 214.6334 * emsq_local + 146.5816 * eoc;
-                g410 =
-                    -41.122 + 242.6940 * em - 471.0940 * emsq_local + 313.9530 * eoc;
-                g422 =
-                    -146.407 + 841.8800 * em - 1629.014 * emsq_local + 1083.4350 * eoc;
-                g520 =
-                    -532.114 + 3017.977 * em - 5740.032 * emsq_local + 3708.2760 * eoc;
+                g310 = -19.302 + 117.3900 * em - 228.4190 * emsq_local + 156.5910 * eoc;
+                g322 = -18.9068 + 109.7927 * em - 214.6334 * emsq_local + 146.5816 * eoc;
+                g410 = -41.122 + 242.6940 * em - 471.0940 * emsq_local + 313.9530 * eoc;
+                g422 = -146.407 + 841.8800 * em - 1629.014 * emsq_local + 1083.4350 * eoc;
+                g520 = -532.114 + 3017.977 * em - 5740.032 * emsq_local + 3708.2760 * eoc;
             } else {
-                g211 =
-                    -72.099 + 331.819 * em - 508.738 * emsq_local + 266.724 * eoc;
-                g310 =
-                    -346.844 + 1582.851 * em - 2415.925 * emsq_local + 1246.113 * eoc;
-                g322 =
-                    -342.585 + 1554.908 * em - 2366.899 * emsq_local + 1215.972 * eoc;
-                g410 =
-                    -1052.797 + 4758.686 * em - 7193.992 * emsq_local + 3651.957 * eoc;
-                g422 =
-                    -3581.690 + 16178.110 * em - 24462.770 * emsq_local + 12422.520 * eoc;
+                g211 = -72.099 + 331.819 * em - 508.738 * emsq_local + 266.724 * eoc;
+                g310 = -346.844 + 1582.851 * em - 2415.925 * emsq_local + 1246.113 * eoc;
+                g322 = -342.585 + 1554.908 * em - 2366.899 * emsq_local + 1215.972 * eoc;
+                g410 = -1052.797 + 4758.686 * em - 7193.992 * emsq_local + 3651.957 * eoc;
+                g422 = -3581.690 + 16178.110 * em - 24462.770 * emsq_local + 12422.520 * eoc;
                 if em > 0.715 {
-                    g520 =
-                        -5149.66 + 29936.92 * em - 54087.36 * emsq_local + 31324.56 * eoc;
+                    g520 = -5149.66 + 29936.92 * em - 54087.36 * emsq_local + 31324.56 * eoc;
                 } else {
                     g520 = 1464.74 - 4664.75 * em + 3763.64 * emsq_local;
                 }
@@ -1159,59 +1223,35 @@ pub fn dsinit(
 
             let (g533, g521, g532);
             if em < 0.7 {
-                g533 = -919.22770
-                    + 4988.61 * em
-                    - 9064.77 * emsq_local
-                    + 5542.21 * eoc;
-                g521 = -822.71072
-                    + 4568.6173 * em
-                    - 8491.4146 * emsq_local
-                    + 5337.524 * eoc;
-                g532 = -853.66600
-                    + 4690.25 * em
-                    - 8624.77 * emsq_local
-                    + 5341.4 * eoc;
+                g533 = -919.22770 + 4988.61 * em - 9064.77 * emsq_local + 5542.21 * eoc;
+                g521 = -822.71072 + 4568.6173 * em - 8491.4146 * emsq_local + 5337.524 * eoc;
+                g532 = -853.66600 + 4690.25 * em - 8624.77 * emsq_local + 5341.4 * eoc;
             } else {
-                g533 = -37995.78
-                    + 161616.52 * em
-                    - 229838.2 * emsq_local
-                    + 109377.94 * eoc;
-                g521 = -51752.104
-                    + 218913.95 * em
-                    - 309468.16 * emsq_local
-                    + 146349.42 * eoc;
-                g532 = -40023.88
-                    + 170470.89 * em
-                    - 242699.48 * emsq_local
-                    + 115605.82 * eoc;
+                g533 = -37995.78 + 161616.52 * em - 229838.2 * emsq_local + 109377.94 * eoc;
+                g521 = -51752.104 + 218913.95 * em - 309468.16 * emsq_local + 146349.42 * eoc;
+                g532 = -40023.88 + 170470.89 * em - 242699.48 * emsq_local + 115605.82 * eoc;
             }
 
             let sini2 = sinim * sinim;
             let f220 = 0.75 * (1.0 + 2.0 * cosim + cosisq);
             let f221 = 1.5 * sini2;
-            let f321 =
-                1.875 * sinim * (1.0 - 2.0 * cosim - 3.0 * cosisq);
-            let f322 =
-                -1.875 * sinim * (1.0 + 2.0 * cosim - 3.0 * cosisq);
+            let f321 = 1.875 * sinim * (1.0 - 2.0 * cosim - 3.0 * cosisq);
+            let f322 = -1.875 * sinim * (1.0 + 2.0 * cosim - 3.0 * cosisq);
             let f441 = 35.0 * sini2 * f220;
             let f442 = 39.375 * sini2 * sini2;
             let f522 = 9.84375
                 * sinim
                 * (sini2 * (1.0 - 2.0 * cosim - 5.0 * cosisq)
-                + 1.0 / 3.0 * (-2.0 + 4.0 * cosim + 6.0 * cosisq));
+                    + 1.0 / 3.0 * (-2.0 + 4.0 * cosim + 6.0 * cosisq));
             let f523 = sinim
                 * (4.92187512 * sini2 * (-2.0 - 4.0 * cosim + 10.0 * cosisq)
-                + 6.56250012 * (1.0 + 2.0 * cosim - 3.0 * cosisq));
+                    + 6.56250012 * (1.0 + 2.0 * cosim - 3.0 * cosisq));
             let f542 = 29.53125
                 * sinim
-                * (2.0
-                - 8.0 * cosim
-                + cosisq * (-12.0 + 8.0 * cosim + 10.0 * cosisq));
+                * (2.0 - 8.0 * cosim + cosisq * (-12.0 + 8.0 * cosim + 10.0 * cosisq));
             let f543 = 29.53125
                 * sinim
-                * (-2.0
-                - 8.0 * cosim
-                + cosisq * (12.0 + 8.0 * cosim - 10.0 * cosisq));
+                * (-2.0 - 8.0 * cosim + cosisq * (12.0 + 8.0 * cosim - 10.0 * cosisq));
 
             let xno2 = nm * nm;
             let ainv2 = aonv * aonv;
@@ -1235,8 +1275,7 @@ pub fn dsinit(
             d5421 = temp * f542 * g521;
             d5433 = temp * f543 * g533;
             xlamo = (mo + nodeo + nodeo - theta - theta) % TWOPI;
-            xfact =
-                mdot + dmdt + 2.0 * (nodedot + dnodt - rptim) - no;
+            xfact = mdot + dmdt + 2.0 * (nodedot + dnodt - rptim) - no;
             em = emo;
             emsq_local = emsqo;
         }
@@ -1246,8 +1285,7 @@ pub fn dsinit(
             let g310 = 1.0 + 2.0 * emsq;
             let g300 = 1.0 + emsq * (-6.0 + 6.60937 * emsq);
             let f220 = 0.75 * (1.0 + cosim) * (1.0 + cosim);
-            let f311 = 0.9375 * sinim * sinim * (1.0 + 3.0 * cosim)
-                - 0.75 * (1.0 + cosim);
+            let f311 = 0.9375 * sinim * sinim * (1.0 + 3.0 * cosim) - 0.75 * (1.0 + cosim);
             let mut f330 = 1.0 + cosim;
             f330 = 1.875 * f330 * f330 * f330;
             del1 = 3.0 * nm * nm * aonv * aonv;
@@ -1255,8 +1293,7 @@ pub fn dsinit(
             del3 = 3.0 * del1 * f330 * g300 * q33 * aonv;
             del1 = del1 * f311 * g310 * q31 * aonv;
             xlamo = (mo + nodeo + argpo - theta) % TWOPI;
-            xfact =
-                mdot + xpidot - rptim + dmdt + domdt + dnodt - no;
+            xfact = mdot + xpidot - rptim + dmdt + domdt + dnodt - no;
         }
 
         xli = xlamo;
@@ -1266,9 +1303,9 @@ pub fn dsinit(
     }
 
     (
-        em, argpm, inclm, mm, nm, nodem, irez, atime, d2201, d2211, d3210,
-        d3222, d4410, d4422, d5220, d5232, d5421, d5433, dedt, didt, dmdt,
-        dndt, dnodt, domdt, del1, del2, del3, xfact, xlamo, xli, xni,
+        em, argpm, inclm, mm, nm, nodem, irez, atime, d2201, d2211, d3210, d3222, d4410, d4422,
+        d5220, d5232, d5421, d5433, dedt, didt, dmdt, dndt, dnodt, domdt, del1, del2, del3, xfact,
+        xlamo, xli, xni,
     )
 }
 
@@ -1384,10 +1421,10 @@ pub fn dspace(
                     + d5220 * (xomi + xli - g52).cos()
                     + d5232 * (-xomi + xli - g52).cos()
                     + 2.0
-                    * (d4410 * (x2omi + x2li - g44).cos()
-                    + d4422 * (x2li - g44).cos()
-                    + d5421 * (xomi + x2li - g54).cos()
-                    + d5433 * (-xomi + x2li - g54).cos());
+                        * (d4410 * (x2omi + x2li - g44).cos()
+                            + d4422 * (x2li - g44).cos()
+                            + d5421 * (xomi + x2li - g54).cos()
+                            + d5433 * (-xomi + x2li - g54).cos());
                 xnddt *= xldot;
             }
 
@@ -1434,7 +1471,23 @@ pub fn initl(
     mut no: f64,
     method: &mut char,
     opsmode: char,
-) -> (f64, char, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+) -> (
+    f64,
+    char,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+) {
     let x2o3 = 2.0 / 3.0;
     let eccsq = ecco * ecco;
     let omeosq = 1.0 - eccsq;
@@ -1445,10 +1498,7 @@ pub fn initl(
     let ak = (xke / no).powf(x2o3);
     let d1 = 0.75 * j2 * (3.0 * cosio2 - 1.0) / (rteosq * omeosq);
     let mut del_ = d1 / (ak * ak);
-    let adel = ak
-        * (1.0
-        - del_ * del_
-        - del_ * (1.0 / 3.0 + 134.0 * del_ * del_ / 81.0));
+    let adel = ak * (1.0 - del_ * del_ - del_ * (1.0 / 3.0 + 134.0 * del_ * del_ / 81.0));
     del_ = d1 / (adel * adel);
     no = no / (1.0 + del_);
 
@@ -1470,8 +1520,7 @@ pub fn initl(
         let thgr70 = 1.732_134_385_650_937_4_f64;
         let fk5r = 5.075_514_194_322_694_42e-15_f64;
         let c1p2p = c1 + TWOPI;
-        let mut gsto_local =
-            (thgr70 + c1 * ds70 + c1p2p * tfrac + ts70 * ts70 * fk5r) % TWOPI;
+        let mut gsto_local = (thgr70 + c1 * ds70 + c1p2p * tfrac + ts70 * ts70 * fk5r) % TWOPI;
         if gsto_local < 0.0 {
             gsto_local += TWOPI;
         }
@@ -1481,8 +1530,8 @@ pub fn initl(
     };
 
     (
-        no, *method, ainv, ao, con41, con42, cosio, cosio2, eccsq, omeosq,
-        posq, rp, rteosq, sinio, gsto,
+        no, *method, ainv, ao, con41, con42, cosio, cosio2, eccsq, omeosq, posq, rp, rteosq, sinio,
+        gsto,
     )
 }
 
@@ -1703,15 +1752,14 @@ pub fn sgp4init(
         let coef1 = coef / psisq.powf(3.5);
         let cc2 = coef1
             * satrec.no_unkozai
-            * (ao
-            * (1.0 + 1.5 * etasq + eeta * (4.0 + etasq))
-            + 0.375 * satrec.j2 * tsi / psisq * satrec.con41
-            * (8.0 + 3.0 * etasq * (8.0 + etasq)));
+            * (ao * (1.0 + 1.5 * etasq + eeta * (4.0 + etasq))
+                + 0.375 * satrec.j2 * tsi / psisq
+                    * satrec.con41
+                    * (8.0 + 3.0 * etasq * (8.0 + etasq)));
         satrec.cc1 = satrec.bstar * cc2;
         let mut cc3 = 0.0;
         if satrec.ecco > 1.0e-4 {
-            cc3 = -2.0 * coef * tsi * satrec.j3oj2 * satrec.no_unkozai * sinio
-                / satrec.ecco;
+            cc3 = -2.0 * coef * tsi * satrec.j3oj2 * satrec.no_unkozai * sinio / satrec.ecco;
         }
         satrec.x1mth2 = 1.0 - cosio2;
         satrec.cc4 = 2.0
@@ -1719,37 +1767,28 @@ pub fn sgp4init(
             * coef1
             * ao
             * omeosq
-            * (satrec.eta * (2.0 + 0.5 * etasq)
-            + satrec.ecco * (0.5 + 2.0 * etasq)
-            - satrec.j2 * tsi / (ao * psisq)
-            * (-3.0 * satrec.con41
-            * (1.0 - 2.0 * eeta + etasq * (1.5 - 0.5 * eeta))
-            + 0.75 * satrec.x1mth2
-            * (2.0 * etasq - eeta * (1.0 + etasq))
-            * (2.0 * satrec.argpo).cos()));
-        satrec.cc5 = 2.0
-            * coef1
-            * ao
-            * omeosq
-            * (1.0 + 2.75 * (etasq + eeta) + eeta * etasq);
+            * (satrec.eta * (2.0 + 0.5 * etasq) + satrec.ecco * (0.5 + 2.0 * etasq)
+                - satrec.j2 * tsi / (ao * psisq)
+                    * (-3.0 * satrec.con41 * (1.0 - 2.0 * eeta + etasq * (1.5 - 0.5 * eeta))
+                        + 0.75
+                            * satrec.x1mth2
+                            * (2.0 * etasq - eeta * (1.0 + etasq))
+                            * (2.0 * satrec.argpo).cos()));
+        satrec.cc5 = 2.0 * coef1 * ao * omeosq * (1.0 + 2.75 * (etasq + eeta) + eeta * etasq);
 
         let cosio4 = cosio2 * cosio2;
         let temp1 = 1.5 * satrec.j2 * pinvsq * satrec.no_unkozai;
         let temp2 = 0.5 * temp1 * satrec.j2 * pinvsq;
-        let temp3 =
-            -0.46875 * satrec.j4 * pinvsq * pinvsq * satrec.no_unkozai;
+        let temp3 = -0.46875 * satrec.j4 * pinvsq * pinvsq * satrec.no_unkozai;
         satrec.mdot = satrec.no_unkozai
             + 0.5 * temp1 * rteosq * satrec.con41
-            + 0.0625 * temp2 * rteosq
-            * (13.0 - 78.0 * cosio2 + 137.0 * cosio4);
+            + 0.0625 * temp2 * rteosq * (13.0 - 78.0 * cosio2 + 137.0 * cosio4);
         satrec.argpdot = -0.5 * temp1 * con42
             + 0.0625 * temp2 * (7.0 - 114.0 * cosio2 + 395.0 * cosio4)
             + temp3 * (3.0 - 36.0 * cosio2 + 49.0 * cosio4);
         let xhdot1 = -temp1 * cosio;
         satrec.nodedot = xhdot1
-            + (0.5 * temp2 * (4.0 - 19.0 * cosio2)
-            + 2.0 * temp3 * (3.0 - 7.0 * cosio2))
-            * cosio;
+            + (0.5 * temp2 * (4.0 - 19.0 * cosio2) + 2.0 * temp3 * (3.0 - 7.0 * cosio2)) * cosio;
         let xpidot = satrec.argpdot + satrec.nodedot;
         satrec.omgcof = satrec.bstar * cc3 * satrec.argpo.cos();
         satrec.xmcof = if satrec.ecco > 1.0e-4 {
@@ -2062,23 +2101,15 @@ pub fn sgp4init(
             satrec.d2 = 4.0 * ao * tsi * cc1sq;
             let temp = satrec.d2 * tsi * satrec.cc1 / 3.0;
             satrec.d3 = (17.0 * ao + sfour) * temp;
-            satrec.d4 = 0.5
-                * temp
-                * ao
-                * tsi
-                * (221.0 * ao + 31.0 * sfour)
-                * satrec.cc1;
+            satrec.d4 = 0.5 * temp * ao * tsi * (221.0 * ao + 31.0 * sfour) * satrec.cc1;
             satrec.t3cof = satrec.d2 + 2.0 * cc1sq;
-            satrec.t4cof = 0.25
-                * (3.0 * satrec.d3
-                + satrec.cc1
-                * (12.0 * satrec.d2 + 10.0 * cc1sq));
+            satrec.t4cof =
+                0.25 * (3.0 * satrec.d3 + satrec.cc1 * (12.0 * satrec.d2 + 10.0 * cc1sq));
             satrec.t5cof = 0.2
                 * (3.0 * satrec.d4
-                + 12.0 * satrec.cc1 * satrec.d3
-                + 6.0 * satrec.d2 * satrec.d2
-                + 15.0 * cc1sq
-                * (2.0 * satrec.d2 + cc1sq));
+                    + 12.0 * satrec.cc1 * satrec.d3
+                    + 6.0 * satrec.d2 * satrec.d2
+                    + 15.0 * cc1sq * (2.0 * satrec.d2 + cc1sq));
         }
     }
 
@@ -2116,8 +2147,7 @@ pub fn sgp4(satrec: &mut SatRec, tsince: f64) -> (Option<[f64; 3]>, Option<[f64;
     if satrec.isimp != 1 {
         let delomg = satrec.omgcof * satrec.t;
         let delmtemp = 1.0 + satrec.eta * xmdf.cos();
-        let delm =
-            satrec.xmcof * (delmtemp * delmtemp * delmtemp - satrec.delmo);
+        let delm = satrec.xmcof * (delmtemp * delmtemp * delmtemp - satrec.delmo);
         let temp = delomg + delm;
         mm = xmdf + temp;
         argpm = argpdf - temp;
@@ -2134,55 +2164,45 @@ pub fn sgp4(satrec: &mut SatRec, tsince: f64) -> (Option<[f64; 3]>, Option<[f64;
 
     if satrec.method == 'd' {
         let tc = satrec.t;
-        let (
-            atime,
-            em_out,
-            argpm_out,
-            inclm_out,
-            xli,
-            mm_out,
-            xni,
-            nodem_out,
-            dndt,
-            nm_out,
-        ) = dspace(
-            satrec.irez,
-            satrec.d2201,
-            satrec.d2211,
-            satrec.d3210,
-            satrec.d3222,
-            satrec.d4410,
-            satrec.d4422,
-            satrec.d5220,
-            satrec.d5232,
-            satrec.d5421,
-            satrec.d5433,
-            satrec.dedt,
-            satrec.del1,
-            satrec.del2,
-            satrec.del3,
-            satrec.didt,
-            satrec.dmdt,
-            satrec.dnodt,
-            satrec.domdt,
-            satrec.argpo,
-            satrec.argpdot,
-            satrec.t,
-            tc,
-            satrec.gsto,
-            satrec.xfact,
-            satrec.xlamo,
-            satrec.no_unkozai,
-            satrec.atime,
-            em,
-            argpm,
-            inclm,
-            satrec.xli,
-            mm,
-            satrec.xni,
-            nodem,
-            nm,
-        );
+        let (atime, em_out, argpm_out, inclm_out, xli, mm_out, xni, nodem_out, dndt, nm_out) =
+            dspace(
+                satrec.irez,
+                satrec.d2201,
+                satrec.d2211,
+                satrec.d3210,
+                satrec.d3222,
+                satrec.d4410,
+                satrec.d4422,
+                satrec.d5220,
+                satrec.d5232,
+                satrec.d5421,
+                satrec.d5433,
+                satrec.dedt,
+                satrec.del1,
+                satrec.del2,
+                satrec.del3,
+                satrec.didt,
+                satrec.dmdt,
+                satrec.dnodt,
+                satrec.domdt,
+                satrec.argpo,
+                satrec.argpdot,
+                satrec.t,
+                tc,
+                satrec.gsto,
+                satrec.xfact,
+                satrec.xlamo,
+                satrec.no_unkozai,
+                satrec.atime,
+                em,
+                argpm,
+                inclm,
+                satrec.xli,
+                mm,
+                satrec.xni,
+                nodem,
+                nm,
+            );
         satrec.atime = atime;
         em = em_out;
         argpm = argpm_out;
@@ -2195,8 +2215,7 @@ pub fn sgp4(satrec: &mut SatRec, tsince: f64) -> (Option<[f64; 3]>, Option<[f64;
     }
 
     if nm <= 0.0 {
-        satrec.error_message =
-            Some(format!("mean motion {} is less than zero", nm));
+        satrec.error_message = Some(format!("mean motion {} is less than zero", nm));
         satrec.error = 2;
         return (None, None);
     }
@@ -2324,8 +2343,7 @@ pub fn sgp4(satrec: &mut SatRec, tsince: f64) -> (Option<[f64; 3]>, Option<[f64;
     let pl = am * (1.0 - el2);
 
     if pl < 0.0 {
-        satrec.error_message =
-            Some(format!("semilatus rectum {} is less than zero", pl));
+        satrec.error_message = Some(format!("semilatus rectum {} is less than zero", pl));
         satrec.error = 4;
         return (None, None);
     }
@@ -2351,15 +2369,12 @@ pub fn sgp4(satrec: &mut SatRec, tsince: f64) -> (Option<[f64; 3]>, Option<[f64;
         satrec.x7thm1 = 7.0 * cosisq - 1.0;
     }
 
-    let mrt = rl * (1.0 - 1.5 * temp2 * betal * satrec.con41)
-        + 0.5 * temp1 * satrec.x1mth2 * cos2u;
+    let mrt = rl * (1.0 - 1.5 * temp2 * betal * satrec.con41) + 0.5 * temp1 * satrec.x1mth2 * cos2u;
     su -= 0.25 * temp2 * satrec.x7thm1 * sin2u;
     let xnode = nodep + 1.5 * temp2 * cosip * sin2u;
     let xinc = xincp + 1.5 * temp2 * cosip * sinip * cos2u;
     let mvt = rdotl - nm * temp1 * satrec.x1mth2 * sin2u / satrec.xke;
-    let rvdot = rvdotl
-        + nm * temp1 * (satrec.x1mth2 * cos2u + 1.5 * satrec.con41)
-        / satrec.xke;
+    let rvdot = rvdotl + nm * temp1 * (satrec.x1mth2 * cos2u + 1.5 * satrec.con41) / satrec.xke;
 
     let sinsu = su.sin();
     let cossu = su.cos();

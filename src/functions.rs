@@ -13,14 +13,7 @@
 /// ```text
 /// jday(2020, 2, 11, 13, 57, 0) -> (2458890.5, 0.58125)
 /// ```
-pub fn jday(
-    year: i32,
-    mon: i32,
-    day: i32,
-    hr: i32,
-    minute: i32,
-    sec: f64,
-) -> (f64, f64) {
+pub fn jday(year: i32, mon: i32, day: i32, hr: i32, minute: i32, sec: f64) -> (f64, f64) {
     // Careful port of the weird floor/float math from Python.
     let year_f = year as f64;
     let mon_f = mon as f64;
@@ -52,11 +45,7 @@ pub fn jday(
 /// `days` is 1.0 for the start of Jan 1, 2.0 for the start of Jan 2, etc.
 /// Seconds are optionally rounded to the nearest microsecond if
 /// `round_to_microsecond` is true (mirroring the original intent).
-pub fn days2mdhms(
-    year: i32,
-    days: f64,
-    round_to_microsecond: bool,
-) -> (i32, i32, i32, i32, f64) {
+pub fn days2mdhms(year: i32, days: f64, round_to_microsecond: bool) -> (i32, i32, i32, i32, f64) {
     // seconds since start of the year
     let mut second = days * 86400.0;
 

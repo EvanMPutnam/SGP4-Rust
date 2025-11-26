@@ -72,8 +72,7 @@ pub fn newtonnu(ecc: f64, nu: f64) -> (f64, f64) {
     } else if ecc > 1.0 + small {
         // Hyperbolic
         if ecc > 1.0 && (nu.abs() + 0.00001) < PI - (1.0 / ecc).acos() {
-            let sine =
-                ((ecc * ecc - 1.0).sqrt() * nu.sin()) / (1.0 + ecc * nu.cos());
+            let sine = ((ecc * ecc - 1.0).sqrt() * nu.sin()) / (1.0 + ecc * nu.cos());
             e0 = sine.asinh();
             m = ecc * e0.sinh() - e0;
         }
@@ -136,8 +135,8 @@ pub fn rv2coe(
     if magh <= small {
         // Undefined orbit
         return (
-            UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED,
-            UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED,
+            UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED,
+            UNDEFINED, UNDEFINED, UNDEFINED,
         );
     }
 
@@ -157,7 +156,11 @@ pub fn rv2coe(
 
     // semi-major axis / semi-latus rectum
     let sme = 0.5 * magv * magv - mu / magr;
-    let a = if sme.abs() > small { -mu / (2.0 * sme) } else { INFINITE };
+    let a = if sme.abs() > small {
+        -mu / (2.0 * sme)
+    } else {
+        INFINITE
+    };
     let p = magh * magh / mu;
 
     // inclination
@@ -275,14 +278,7 @@ pub fn rv2coe(
 ///
 /// This is *different* from `functions::jday` in your port, which returns
 /// `(jd, fr)`. This corresponds to the `jday()` at the bottom of `sgp4ext.cpp`.
-pub fn jday(
-    year: i32,
-    mon: i32,
-    day: i32,
-    hr: i32,
-    minute: i32,
-    sec: f64,
-) -> f64 {
+pub fn jday(year: i32, mon: i32, day: i32, hr: i32, minute: i32, sec: f64) -> f64 {
     // faithful translation of the Python / Vallado formula
     let year_f = year as f64;
     let mon_f = mon as f64;
@@ -290,8 +286,7 @@ pub fn jday(
     let hr_f = hr as f64;
     let min_f = minute as f64;
 
-    367.0 * year_f
-        - (7.0 * (year_f + ((mon_f + 9.0) / 12.0).floor()) * 0.25).floor()
+    367.0 * year_f - (7.0 * (year_f + ((mon_f + 9.0) / 12.0).floor()) * 0.25).floor()
         + (275.0 * mon_f / 9.0).floor()
         + day_f
         + 1_721_013.5
@@ -311,8 +306,7 @@ pub fn invjday(jd: f64) -> (i32, i32, i32, i32, i32, f64) {
     let mut leapyrs = (((year - 1901) as f64 * 0.25).floor()) as i32;
 
     // optional nudge by 8.64e-7 sec to get even outputs
-    let mut days =
-        temp - ((year - 1900) as f64 * 365.0 + leapyrs as f64) + 0.00000000001;
+    let mut days = temp - ((year - 1900) as f64 * 365.0 + leapyrs as f64) + 0.00000000001;
 
     // check for case of beginning of a year
     if days < 1.0 {
@@ -326,14 +320,7 @@ pub fn invjday(jd: f64) -> (i32, i32, i32, i32, i32, f64) {
     sec -= 0.00000086400;
 
     // Cast everything to i32 for a clean API
-    (
-        year,
-        mon as i32,
-        day as i32,
-        hr as i32,
-        minute as i32,
-        sec,
-    )
+    (year, mon as i32, day as i32, hr as i32, minute as i32, sec)
 }
 #[cfg(test)]
 mod tests {
@@ -400,7 +387,7 @@ mod tests {
 
         // Reference values from the Python/Vallado implementation.
         let expected_e0 = 0.917_912_038_666_774_1_f64;
-        let expected_m  = 0.838_478_542_901_907_3_f64;
+        let expected_m = 0.838_478_542_901_907_3_f64;
 
         approx(e0, expected_e0, 1e-12);
         approx(m, expected_m, 1e-12);
@@ -416,7 +403,7 @@ mod tests {
 
         // Reference values from the Python/Vallado implementation.
         let expected_e0 = 0.229_385_302_037_439_15_f64;
-        let expected_m  = 0.117_718_026_442_174_41_f64;
+        let expected_m = 0.117_718_026_442_174_41_f64;
 
         approx(e0, expected_e0, 1e-12);
         approx(m, expected_m, 1e-12);
@@ -455,15 +442,10 @@ mod tests {
             18547.275009889749_f64,
             12603.838242542852_f64,
         ];
-        let v = [
-            -3.290244896520_f64,
-            -0.275171108848_f64,
-            2.719387109636_f64,
-        ];
+        let v = [-3.290244896520_f64, -0.275171108848_f64, 2.719387109636_f64];
         let mu = 398_600.4418_f64;
 
-        let (p, a, ecc, incl, omega, argp, nu, m, arglat, truelon, lonper) =
-            rv2coe(&r, &v, mu);
+        let (p, a, ecc, incl, omega, argp, nu, m, arglat, truelon, lonper) = rv2coe(&r, &v, mu);
 
         // Use slightly relaxed tolerances because we don't care about
         // sub-nanometer precision here, just that the implementation matches
@@ -479,7 +461,7 @@ mod tests {
 
         // Angles in radians: 55°, 40°, 30°, 10°, and mean anomaly ~0.142215 rad
         let deg_to_rad = std::f64::consts::PI / 180.0;
-        approx(incl,55.0 * deg_to_rad, tol_ang);
+        approx(incl, 55.0 * deg_to_rad, tol_ang);
         approx(omega, 40.0 * deg_to_rad, tol_ang);
         approx(argp, 30.0 * deg_to_rad, tol_ang);
         approx(nu, 10.0 * deg_to_rad, tol_ang);
@@ -491,5 +473,4 @@ mod tests {
         assert!((truelon - 999_999.1).abs() < 1.0e-6);
         assert!((lonper - 999_999.1).abs() < 1.0e-6);
     }
-
 }

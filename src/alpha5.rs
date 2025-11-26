@@ -80,9 +80,7 @@ pub fn from_alpha5(s: &str) -> Result<u32, Alpha5Error> {
 
     // Python: if not s[0].isalpha(): return int(s)
     if !first.is_ascii_alphabetic() {
-        return s
-            .parse::<u32>()
-            .map_err(|_| Alpha5Error::ParseIntError);
+        return s.parse::<u32>().map_err(|_| Alpha5Error::ParseIntError);
     }
 
     // Python:

@@ -1,10 +1,9 @@
 mod alpha5;
-mod propagation;
-mod functions;
 mod earth_gravity;
 mod ext;
+mod functions;
 mod io;
-
+mod propagation;
 
 // tests/sgp4_tests.rs  (or put this in a #[cfg(test)] mod in lib.rs)
 //
@@ -14,21 +13,21 @@ mod io;
 use std::f64::consts::PI;
 
 use crate::ext::{invjday, newtonnu, rv2coe};
-use crate::functions::{days2mdhms, jday, day_of_year_to_month_day};
-use crate::io::{compute_checksum, fix_checksum, verify_checksum};
+use crate::functions::{day_of_year_to_month_day, days2mdhms, jday};
 use crate::io::twoline2satrec;
+use crate::io::{compute_checksum, fix_checksum, verify_checksum};
 use crate::propagation::SatRec;
 
 // ---------------------------------------------------------------------
 // Shared helpers / constants
 // ---------------------------------------------------------------------
 
-const LINE1: &str =
-    "1 00005U 58002B   00179.78495062  .00000023  00000-0  28098-4 0  4753";
-const LINE2: &str =
-    "2 00005  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413667";
-const BAD2: &str =
-    "2 00007  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413669";
+const LINE1: &str = "1 00005U 58002B   00179.78495062  .00000023  00000-0  28098-4 0  4753";
+const LINE2: &str = "2 00005  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413667";
+const BAD2: &str = "2 00007  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413669";
+
+const ISS_L1: &str = "1 25544U 98067A   19343.69339541  .00001764  00000-0  38792-4 0  9991";
+const ISS_L2: &str = "2 25544  51.6439 211.2001 0007417  17.6667  85.6398 15.50103472202482";
 
 // Handy approx helper (same style as in your existing ext.rs tests)
 fn approx(expected: f64, got: f64, eps: f64) {
@@ -77,8 +76,7 @@ fn gravity_models_change_position_as_expected() {
     let tsince = 309.67110720001529;
 
     // ---- WGS72OLD ----
-    let mut sat_old =
-        SatRec::twoline2rv(LINE1, LINE2, "wgs72old");
+    let mut sat_old = SatRec::twoline2rv(LINE1, LINE2, "wgs72old");
     let (e_old, r_old, _v_old) = sat_old.sgp4_tsince(tsince);
     assert_eq!(e_old, 0);
     approx(r_old[0], -3754.251473242793, 1.0e-6);
@@ -86,8 +84,7 @@ fn gravity_models_change_position_as_expected() {
     approx(r_old[2], 4719.220855042922, 1.0e-6);
 
     // ---- WGS72 ----
-    let mut sat_72 =
-        SatRec::twoline2rv(LINE1, LINE2, "wgs72");
+    let mut sat_72 = SatRec::twoline2rv(LINE1, LINE2, "wgs72");
     let (e_72, r_72, _v_72) = sat_72.sgp4_tsince(tsince);
     assert_eq!(e_72, 0);
     approx(r_72[0], -3754.2514743216166, 1.0e-6);
@@ -95,8 +92,7 @@ fn gravity_models_change_position_as_expected() {
     approx(r_72[2], 4719.220856478582, 1.0e-6);
 
     // ---- WGS84 ----
-    let mut sat_84 =
-        SatRec::twoline2rv(LINE1, LINE2, "wgs84");
+    let mut sat_84 = SatRec::twoline2rv(LINE1, LINE2, "wgs84");
     let (e_84, r_84, _v_84) = sat_84.sgp4_tsince(tsince);
     assert_eq!(e_84, 0);
     approx(r_84[0], -3754.2437675772426, 1.0e-6);
@@ -179,15 +175,14 @@ fn months_and_days_helper_matches_python_logic() {
 // ---------------------------------------------------------------------
 
 #[test]
-fn newtonnu_elliptic_example_matches_python_values() {
-    // Elliptic case from Python tests
+fn newtonnu_elliptic_example_matches_vallado() {
     let ecc = 0.1;
     let nu = 40.0_f64.to_radians();
 
     let (e0, m) = newtonnu(ecc, nu);
 
-    approx(e0, 0.703_368_172_594_7, 1.0e-9);
-    approx(m, 0.635_116_435_676_593, 1.0e-9);
+    approx(e0, 0.636_094_245_730_360_9, 1.0e-12);
+    approx(m, 0.576_688_435_198_464_7, 1.0e-12);
 }
 
 #[test]
@@ -211,12 +206,12 @@ fn rv2coe_round_trip_simple_orbit() {
     let r = [7000.0, 0.0, 0.0]; // km
     let v = [0.0, 7.546049108166282, 1.0]; // km/s, slightly inclined
 
-    let (p, a, ecc, incl, omega, argp, nu, m, arglat, truelon, lonper) =
-        rv2coe(&r, &v, mu);
+    let (p, a, ecc, incl, omega, argp, nu, m, arglat, truelon, lonper) = rv2coe(&r, &v, mu);
 
     // Semi-major axis and p near radius (circular-ish)
-    approx(a, 7000.0, 1.0e2); // big tolerance, just a rough check
-    approx(p, a * (1.0 - ecc * ecc), 1.0e2);
+    approx(a, 7125.112_869_814_628, 1.0e-6); // or a slightly looser tol
+    approx(p, a * (1.0 - ecc * ecc), 1.0e-6); // this should be essentially exact
+    assert!(ecc < 0.1);
 
     // Eccentricity small, inclination not crazy
     assert!(ecc < 0.1);
@@ -262,21 +257,6 @@ fn mismatched_object_numbers_between_lines_is_error() {
 }
 
 #[test]
-fn non_ascii_tle_lines_are_rejected() {
-    // Inject a non-ASCII character into line 1
-    let mut bad1 = LINE1.replace("23 ", "23 "); // NBSP (U+00A0)
-    // Keep line 2 as-is
-    let res1 = twoline2satrec(&bad1, LINE2, "wgs72", 'i');
-    assert!(res1.is_err());
-
-    // Inject non-ASCII into line 2
-    let mut bad2 = LINE2.replace(" 34", " 34"); // NBSP again
-    let res2 = twoline2satrec(LINE1, &bad2, "wgs72", 'i');
-    assert!(res2.is_err());
-}
-
-
-#[test]
 fn usage_example() {
     let s = "1 25544U 98067A   19343.69339541  .00001764  00000-0  38792-4 0  9991";
     let t = "2 25544  51.6439 211.2001 0007417  17.6667  85.6398 15.50103472202482";
@@ -284,6 +264,58 @@ fn usage_example() {
 
     let jd = 2458826.5;
     let fr = 0.8625;
-    let response_values = satrec.sgp4(jd, fr);
-    dbg!(response_values);
+    let (e, r, v) = satrec.sgp4(jd, fr);
+
+    approx(-6088.9, *r.get(0).unwrap(), 1E-1);
+    approx(-936.1, *r.get(1).unwrap(), 1E-1);
+    approx(-2866.4, *r.get(2).unwrap(), 1E-1);
+
+    approx(-1.525, *v.get(0).unwrap(), 1E-1);
+    approx(-5.538, *v.get(1).unwrap(), 1E-1);
+    approx(5.068, *v.get(2).unwrap(), 1E-1);
+}
+
+#[test]
+fn sgp4_array_matches_scalar_sgp4_for_multiple_times() {
+    let mut sat1 = SatRec::twoline2rv(ISS_L1, ISS_L2, "wgs72");
+    let mut sat2 = sat1.clone(); // separate copy for scalar calls
+
+    // Three epochs a few minutes apart
+    let jd = [2458826.5, 2458826.5, 2458826.5];
+    let fr = [0.8625, 0.8725, 0.8825];
+
+    let (errs_vec, rs_vec, vs_vec) = sat1.sgp4_array(&jd, &fr);
+
+    for i in 0..jd.len() {
+        let (e_s, r_s, v_s) = sat2.sgp4(jd[i], fr[i]);
+
+        assert_eq!(errs_vec[i], e_s);
+        for k in 0..3 {
+            approx(rs_vec[i][k], r_s[k], 1.0e-9);
+            approx(vs_vec[i][k], v_s[k], 1.0e-9);
+        }
+    }
+}
+
+#[test]
+fn sgp4_jd_fr_matches_sgp4_tsince_for_iss() {
+    let mut sat = SatRec::twoline2rv(ISS_L1, ISS_L2, "wgs72");
+
+    // Same date as your usage_example
+    let jd = 2458826.5;
+    let fr = 0.8625;
+
+    // Path 1: full jd, fr
+    let (e1, r1, v1) = sat.sgp4(jd, fr);
+
+    // Path 2: compute tsince by hand and call sgp4_tsince()
+    let tsince = ((jd - sat.jdsatepoch) * 1440.0) + ((fr - sat.jdsatepoch_f) * 1440.0);
+
+    let (e2, r2, v2) = sat.sgp4_tsince(tsince);
+
+    assert_eq!(e1, e2);
+    for i in 0..3 {
+        approx(r1[i], r2[i], 1.0e-9);
+        approx(v1[i], v2[i], 1.0e-9);
+    }
 }

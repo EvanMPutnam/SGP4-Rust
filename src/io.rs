@@ -3,12 +3,10 @@ use std::f64::consts::PI;
 
 use crate::ext::{invjday, jday};
 use crate::functions::days2mdhms;
-use crate::propagation::{sgp4init, SatRec};
+use crate::propagation::{SatRec, sgp4init};
 
-const LINE1_FMT: &str =
-    "1 NNNNNC NNNNNAAA NNNNN.NNNNNNNN +.NNNNNNNN +NNNNN-N +NNNNN-N N NNNNN";
-const LINE2_FMT: &str =
-    "2 NNNNN NNN.NNNN NNN.NNNN NNNNNNN NNN.NNNN NNN.NNNN NN.NNNNNNNNNNNNNN";
+const LINE1_FMT: &str = "1 NNNNNC NNNNNAAA NNNNN.NNNNNNNN +.NNNNNNNN +NNNNN-N +NNNNN-N N NNNNN";
+const LINE2_FMT: &str = "2 NNNNN NNN.NNNN NNN.NNNN NNNNNNN NNN.NNNN NNN.NNNN NN.NNNNNNNNNNNNNN";
 
 fn tle_error_message(line_no: u8, given: &str) -> String {
     format!(
@@ -21,7 +19,7 @@ fn tle_error_message(line_no: u8, given: &str) -> String {
 pub fn twoline2satrec(
     longstr1: &str,
     longstr2: &str,
-    whichconst: &str,   // <-- now &str, matching sgp4init
+    whichconst: &str, // <-- now &str, matching sgp4init
     opsmode: char,
 ) -> Result<SatRec, String> {
     let deg2rad = PI / 180.0;
@@ -53,26 +51,42 @@ pub fn twoline2satrec(
     }
 
     let satnum_str = line1[2..7].trim().to_string();
-    let two_digit_year: i32 = line1[18..20].trim().parse()
+    let two_digit_year: i32 = line1[18..20]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse epoch year from line 1: {e}"))?;
-    let epochdays: f64 = line1[20..32].trim().parse()
+    let epochdays: f64 = line1[20..32]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse epochdays from line 1: {e}"))?;
-    let ndot_raw: f64 = line1[33..43].trim().parse()
+    let ndot_raw: f64 = line1[33..43]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse ndot from line 1: {e}"))?;
     let nddot_str = format!("{}.{}", &line1[44..45], &line1[45..50]);
-    let mut nddot: f64 = nddot_str.trim().parse()
+    let mut nddot: f64 = nddot_str
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse nddot from line 1: {e}"))?;
-    let nexp: i32 = line1[50..52].trim().parse()
+    let nexp: i32 = line1[50..52]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse nddot exponent from line 1: {e}"))?;
     let bstar_str = format!("{}.{}", &line1[53..54], &line1[54..59]);
-    let mut bstar: f64 = bstar_str.trim().parse()
+    let mut bstar: f64 = bstar_str
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse bstar from line 1: {e}"))?;
-    let ibexp: i32 = line1[59..61].trim().parse()
+    let ibexp: i32 = line1[59..61]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse bstar exponent from line 1: {e}"))?;
     let classification = line1.chars().nth(7).unwrap_or('U');
     let intldesg = line1[9..17].trim_end().to_string();
     let ephtype = line1.chars().nth(62).unwrap_or(' ');
-    let elnum: i32 = line1[64..68].trim().parse()
+    let elnum: i32 = line1[64..68]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse elnum from line 1: {e}"))?;
 
     // --- parse line 2 (same as before) ---
@@ -96,18 +110,29 @@ pub fn twoline2satrec(
         return Err("Object numbers in lines 1 and 2 do not match".to_string());
     }
 
-    let inclo_deg: f64 = line2[8..16].trim().parse()
+    let inclo_deg: f64 = line2[8..16]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse inclination from line 2: {e}"))?;
-    let nodeo_deg: f64 = line2[17..25].trim().parse()
+    let nodeo_deg: f64 = line2[17..25]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse RAAN from line 2: {e}"))?;
     let ecco_str = format!("0.{}", line2[26..33].replace(' ', "0"));
-    let ecco: f64 = ecco_str.parse()
+    let ecco: f64 = ecco_str
+        .parse()
         .map_err(|e| format!("failed to parse eccentricity from line 2: {e}"))?;
-    let argpo_deg: f64 = line2[34..42].trim().parse()
+    let argpo_deg: f64 = line2[34..42]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse argpo from line 2: {e}"))?;
-    let mo_deg: f64 = line2[43..51].trim().parse()
+    let mo_deg: f64 = line2[43..51]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse mo from line 2: {e}"))?;
-    let no_kozai_rev_per_day: f64 = line2[52..63].trim().parse()
+    let no_kozai_rev_per_day: f64 = line2[52..63]
+        .trim()
+        .parse()
         .map_err(|e| format!("failed to parse mean motion from line 2: {e}"))?;
     let revnum = line2[63..68].trim().to_string();
 
@@ -139,14 +164,7 @@ pub fn twoline2satrec(
 
     let (mon, day, hr, minute, sec) = days2mdhms(year, epochdays, true);
 
-    let jdsatepoch = jday(
-        year,
-        mon as i32,
-        day as i32,
-        hr as i32,
-        minute as i32,
-        sec,
-    );
+    let jdsatepoch = jday(year, mon as i32, day as i32, hr as i32, minute as i32, sec);
 
     // ----------------- build SatRec -----------------
     let mut satrec = SatRec {
@@ -175,21 +193,20 @@ pub fn twoline2satrec(
     //
     let epoch_days_1950 = jdsatepoch - 2433281.5;
 
-    let _ok = sgp4init(
-        whichconst,          // &str, e.g. "wgs72", "wgs84"
-        opsmode,             // 'i' or 'a'
-        &satnum_str,         // satn: &str
-        epoch_days_1950,     // epoch
-        bstar,               // xbstar
-        ndot_sgp4,           // xndot
-        nddot_sgp4,          // xnddot
-        ecco,                // xecco
-        argpo,               // xargpo
-        inclo,               // xinclo
-        mo,                  // xmo
-        no_kozai,            // xno_kozai
-        nodeo,               // xnodeo
-        &mut satrec,         // satrec
+    let _ok = satrec.sgp4init(
+        whichconst,      // &str, e.g. "wgs72", "wgs84"
+        opsmode,         // 'i' or 'a'
+        &satnum_str,     // satn: &str
+        epoch_days_1950, // epoch
+        bstar,           // xbstar
+        ndot_sgp4,       // xndot
+        nddot_sgp4,      // xnddot
+        ecco,            // xecco
+        argpo,           // xargpo
+        inclo,           // xinclo
+        mo,              // xmo
+        no_kozai,        // xno_kozai
+        nodeo,           // xnodeo
     );
 
     // If you want to enforce sgp4init success:
@@ -261,7 +278,6 @@ pub fn verify_checksum(line1: &str, line2: &str) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,35 +303,19 @@ mod tests {
         let line2 = "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
 
         // Adjust function name if yours is `twoline2rv` instead.
-        let mut satrec = twoline2satrec(line1, line2, "wgs72", 'i')
-            .expect("failed to parse ISS TLE");
+        let mut satrec =
+            twoline2satrec(line1, line2, "wgs72", 'i').expect("failed to parse ISS TLE");
 
         // ID / bookkeeping bits
         assert_eq!(satrec.satnum_str, "25544");
         assert_eq!(satrec.classification, 'U');
 
         // Orbital elements in *radians* / dimensionless, matching TLE values.
-        approx(
-            satrec.inclo,
-            51.6436_f64.to_radians(),
-            1.0e-12,
-        );
-        approx(
-            satrec.nodeo,
-            353.2489_f64.to_radians(),
-            1.0e-12,
-        );
+        approx(satrec.inclo, 51.6436_f64.to_radians(), 1.0e-12);
+        approx(satrec.nodeo, 353.2489_f64.to_radians(), 1.0e-12);
         approx(satrec.ecco, 0.0007413, 1.0e-10);
-        approx(
-            satrec.argpo,
-            85.7752_f64.to_radians(),
-            1.0e-12,
-        );
-        approx(
-            satrec.mo,
-            45.1475_f64.to_radians(),
-            1.0e-12,
-        );
+        approx(satrec.argpo, 85.7752_f64.to_radians(), 1.0e-12);
+        approx(satrec.mo, 45.1475_f64.to_radians(), 1.0e-12);
 
         // Mean motion: revs/day → rad/min like Vallado / python-sgp4.
         let mean_motion_revs_per_day = 15.50112970199556_f64;
@@ -335,17 +335,14 @@ mod tests {
 
         // If verify_checksum panics on error:
         verify_checksum(line1, line2);
-
     }
 
     #[test]
     #[should_panic(expected = "TLE line gives its checksum as")]
     fn verify_checksum_rejects_corrupted_tle() {
         // Deliberately corrupt one digit in line 1 so the checksum fails.
-        let bad_line1 =
-            "1 25544U 98067A   19343.69339541  .90001264  00000-0  29621-4 0  9990";
-        let line2 =
-            "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
+        let bad_line1 = "1 25544U 98067A   19343.69339541  .90001264  00000-0  29621-4 0  9990";
+        let line2 = "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
 
         // Expect verify_checksum() to panic with the standard message
         verify_checksum(bad_line1, line2);
@@ -354,10 +351,8 @@ mod tests {
     #[test]
     fn fix_checksum_round_trips_to_valid_line() {
         // Line with a bogus checksum at the end — last digit is intentionally wrong.
-        let bad_line1 =
-            "1 25544U 98067A   19343.69339541  .00001264  00000-0  29621-4 0  9999";
-        let line2 =
-            "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
+        let bad_line1 = "1 25544U 98067A   19343.69339541  .00001264  00000-0  29621-4 0  9999";
+        let line2 = "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
 
         // Compute a corrected line and make sure verify_checksum accepts it.
         let fixed_line1 = fix_checksum(bad_line1);
