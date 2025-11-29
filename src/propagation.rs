@@ -537,8 +537,7 @@ impl Default for SatRec {
 // -----------------------------------------------------------------------------
 // Deep-space periodic terms: dpper
 // -----------------------------------------------------------------------------
-
-pub fn dpper(
+fn dpper(
     satrec: &SatRec, // or &mut SatRec if you mutate it
     inclo: f64,
     init: char, // 'y' / 'n'
@@ -690,7 +689,7 @@ pub fn dpper(
 // -----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-pub fn dscom(
+fn dscom(
     epoch: f64,
     ep: f64,
     argpp: f64,
@@ -1023,7 +1022,7 @@ pub fn dscom(
 // -----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-pub fn dsinit(
+fn dsinit(
     xke: f64,
     cosim: f64,
     emsq: f64,
@@ -1314,7 +1313,7 @@ pub fn dsinit(
 // -----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-pub fn dspace(
+fn dspace(
     irez: i32,
     d2201: f64,
     d2211: f64,
@@ -1462,7 +1461,7 @@ pub fn dspace(
 // -----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-pub fn initl(
+fn initl(
     xke: f64,
     j2: f64,
     ecco: f64,
@@ -1540,7 +1539,7 @@ pub fn initl(
 // -----------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-pub fn sgp4init(
+fn sgp4init(
     whichconst: &str,
     opsmode: char,
     satn: &str,

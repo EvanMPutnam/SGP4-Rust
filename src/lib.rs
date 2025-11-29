@@ -1,9 +1,9 @@
-mod alpha5;
-mod earth_gravity;
-mod ext;
-mod functions;
-mod io;
-mod propagation;
+pub mod alpha5;
+pub mod earth_gravity;
+pub mod ext;
+pub mod functions;
+pub mod io;
+pub mod propagation;
 
 // tests/sgp4_tests.rs  (or put this in a #[cfg(test)] mod in lib.rs)
 //
