@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 
 use crate::ext::{invjday, jday};
 use crate::functions::days2mdhms;
-use crate::propagation::{SatRec};
+use crate::propagation::SatRec;
 
 const LINE1_FMT: &str = "1 NNNNNC NNNNNAAA NNNNN.NNNNNNNN +.NNNNNNNN +NNNNN-N +NNNNN-N N NNNNN";
 const LINE2_FMT: &str = "2 NNNNN NNN.NNNN NNN.NNNN NNNNNNN NNN.NNNN NNN.NNNN NN.NNNNNNNNNNNNNN";

@@ -367,8 +367,6 @@ impl SatRec {
     /// Returns `(error_code, r_km, v_km_s)`.
     pub fn sgp4_tsince(&mut self, tsince: f64) -> (i32, [f64; 3], [f64; 3]) {
         let (r, v) = sgp4(self, tsince);
-        dbg!(tsince, self.error, &self.error_message);
-
         match (r, v) {
             (Some(r), Some(v)) => (self.error, r, v),
             _ => panic!("sgp4 error {}: {:?}", self.error, self.error_message),
