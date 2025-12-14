@@ -77,7 +77,7 @@ fn gravity_models_change_position_as_expected() {
 
     // ---- WGS72OLD ----
     let mut sat_old = SatRec::twoline2rv(LINE1, LINE2, "wgs72old");
-    let (e_old, r_old, _v_old) = sat_old.sgp4_tsince(tsince);
+    let (e_old, r_old, _v_old) = sat_old.sgp4_tsince(tsince).unwrap();
     assert_eq!(e_old, 0);
     approx(r_old[0], -3754.251473242793, 1.0e-6);
     approx(r_old[1], 7876.346815095482, 1.0e-6);
@@ -85,7 +85,7 @@ fn gravity_models_change_position_as_expected() {
 
     // ---- WGS72 ----
     let mut sat_72 = SatRec::twoline2rv(LINE1, LINE2, "wgs72");
-    let (e_72, r_72, _v_72) = sat_72.sgp4_tsince(tsince);
+    let (e_72, r_72, _v_72) = sat_72.sgp4_tsince(tsince).unwrap();
     assert_eq!(e_72, 0);
     approx(r_72[0], -3754.2514743216166, 1.0e-6);
     approx(r_72[1], 7876.346817439062, 1.0e-6);
@@ -93,7 +93,7 @@ fn gravity_models_change_position_as_expected() {
 
     // ---- WGS84 ----
     let mut sat_84 = SatRec::twoline2rv(LINE1, LINE2, "wgs84");
-    let (e_84, r_84, _v_84) = sat_84.sgp4_tsince(tsince);
+    let (e_84, r_84, _v_84) = sat_84.sgp4_tsince(tsince).unwrap();
     assert_eq!(e_84, 0);
     approx(r_84[0], -3754.2437675772426, 1.0e-6);
     approx(r_84[1], 7876.3549956188945, 1.0e-6);
@@ -264,7 +264,7 @@ fn usage_example() {
 
     let jd = 2458826.5;
     let fr = 0.8625;
-    let (e, r, v) = satrec.sgp4(jd, fr);
+    let (e, r, v) = satrec.sgp4(jd, fr).unwrap();
 
     approx(-6088.9, *r.get(0).unwrap(), 1E-1);
     approx(-936.1, *r.get(1).unwrap(), 1E-1);
@@ -287,7 +287,7 @@ fn sgp4_array_matches_scalar_sgp4_for_multiple_times() {
     let (errs_vec, rs_vec, vs_vec) = sat1.sgp4_array(&jd, &fr);
 
     for i in 0..jd.len() {
-        let (e_s, r_s, v_s) = sat2.sgp4(jd[i], fr[i]);
+        let (e_s, r_s, v_s) = sat2.sgp4(jd[i], fr[i]).unwrap();
 
         assert_eq!(errs_vec[i], e_s);
         for k in 0..3 {
@@ -306,12 +306,12 @@ fn sgp4_jd_fr_matches_sgp4_tsince_for_iss() {
     let fr = 0.8625;
 
     // Path 1: full jd, fr
-    let (e1, r1, v1) = sat.sgp4(jd, fr);
+    let (e1, r1, v1) = sat.sgp4(jd, fr).unwrap();
 
     // Path 2: compute tsince by hand and call sgp4_tsince()
     let tsince = ((jd - sat.jdsatepoch) * 1440.0) + ((fr - sat.jdsatepoch_f) * 1440.0);
 
-    let (e2, r2, v2) = sat.sgp4_tsince(tsince);
+    let (e2, r2, v2) = sat.sgp4_tsince(tsince).unwrap();
 
     assert_eq!(e1, e2);
     for i in 0..3 {

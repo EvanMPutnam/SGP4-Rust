@@ -355,7 +355,7 @@ impl SatRec {
     /// set (by TLE parsing or `sgp4init()`).
     ///
     /// Returns `(error_code, r_km, v_km_s)`.
-    pub fn sgp4(&mut self, jd: f64, fr: f64) -> (i32, [f64; 3], [f64; 3]) {
+    pub fn sgp4(&mut self, jd: f64, fr: f64) -> Result<(i32, [f64; 3], [f64; 3]), String> {
         let tsince = ((jd - self.jdsatepoch) * MINUTES_PER_DAY)
             + ((fr - self.jdsatepoch_f) * MINUTES_PER_DAY);
 
@@ -365,11 +365,11 @@ impl SatRec {
     /// Propagate by minutes since epoch, mirroring Python `sgp4_tsince()`.
     ///
     /// Returns `(error_code, r_km, v_km_s)`.
-    pub fn sgp4_tsince(&mut self, tsince: f64) -> (i32, [f64; 3], [f64; 3]) {
+    pub fn sgp4_tsince(&mut self, tsince: f64) -> Result<(i32, [f64; 3], [f64; 3]), String> {
         let (r, v) = sgp4(self, tsince);
         match (r, v) {
-            (Some(r), Some(v)) => (self.error, r, v),
-            _ => panic!("sgp4 error {}: {:?}", self.error, self.error_message),
+            (Some(r), Some(v)) => Ok((self.error, r, v)),
+            _ => Err(format!("sgp4 error {}: {:?}", self.error, self.error_message)),
         }
     }
 
@@ -394,7 +394,7 @@ impl SatRec {
         let mut vs = Vec::with_capacity(jd.len());
 
         for (&jd_i, &fr_i) in jd.iter().zip(fr.iter()) {
-            let (e, r, v) = self.sgp4(jd_i, fr_i);
+            let (e, r, v) = self.sgp4(jd_i, fr_i).unwrap(); // TODO remove this;
             errors.push(e);
             rs.push(r);
             vs.push(v);
