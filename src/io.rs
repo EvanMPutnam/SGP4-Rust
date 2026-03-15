@@ -36,7 +36,7 @@ pub fn twoline2satrec(
     }
 
     // --- parse line 1 (same as before) ---
-    if !(line1.len() >= 64
+    if !(line1.len() >= 68
         && line1.starts_with("1 ")
         && line1.as_bytes().get(8) == Some(&b' ')
         && line1.as_bytes().get(23) == Some(&b'.')
@@ -328,6 +328,20 @@ mod tests {
     }
 
     #[test]
+    fn twoline2satrec_deep_space_keeps_nonzero_angular_elements() {
+        let line1 = "1 41866U 16071A   26072.52842302 -.00000269  00000+0  00000+0 0  9990";
+        let line2 = "2 41866   0.0639  95.6070 0001178  97.0697 176.1246  1.00270027 33987";
+
+        let satrec =
+            twoline2satrec(line1, line2, "wgs72", 'i').expect("failed to parse deep-space TLE");
+
+        // These should remain near the line-2 values, not be zeroed by dsinit.
+        approx(satrec.nodeo, 95.6070_f64.to_radians(), 1.0e-6);
+        approx(satrec.argpo, 97.0697_f64.to_radians(), 1.0e-6);
+        approx(satrec.mo, 176.1246_f64.to_radians(), 1.0e-6);
+    }
+
+    #[test]
     fn verify_checksum_accepts_valid_tle() {
         // ISS TLE with *corrected* checksum on line1
         let line1 = "1 25544U 98067A   19343.69339541  .00001264  00000-0  29621-4 0  9997";
@@ -357,5 +371,20 @@ mod tests {
         // Compute a corrected line and make sure verify_checksum accepts it.
         let fixed_line1 = fix_checksum(bad_line1);
         verify_checksum(&fixed_line1, &line2);
+    }
+
+    #[test]
+    fn twoline2satrec_short_line1_returns_error_without_panic() {
+        let line1 = "1 25544U 98067A   19343.69339541  .00001264  00000-0  29621-4 0  9990";
+        let line2 = "2 25544  51.6436 353.2489 0007413  85.7752  45.1475 15.50112970199556";
+        let short_line1 = &line1[..66];
+
+        let parse_attempt =
+            std::panic::catch_unwind(|| twoline2satrec(short_line1, line2, "wgs72", 'i'));
+        assert!(parse_attempt.is_ok(), "parser panicked on short line-1");
+        assert!(
+            parse_attempt.unwrap().is_err(),
+            "short line-1 should return Err"
+        );
     }
 }

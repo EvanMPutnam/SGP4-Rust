@@ -1952,9 +1952,9 @@ fn sgp4init(
             satrec.argpo = argpo;
             satrec.mo = mo;
 
-            let mut argpm = 0.0;
-            let mut nodem = 0.0;
-            let mut mm = 0.0;
+            let mut argpm = satrec.argpo;
+            let mut nodem = satrec.nodeo;
+            let mut mm = satrec.mo;
 
             let (
                 em_out,

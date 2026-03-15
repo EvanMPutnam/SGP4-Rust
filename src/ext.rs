@@ -41,7 +41,7 @@ pub fn angle(vec1: &[f64; 3], vec2: &[f64; 3]) -> f64 {
         let mut temp = dot(vec1, vec2) / (magv1 * magv2);
         if temp.abs() > 1.0 {
             // clamp to [-1, 1] like Python's copysign logic
-            temp = temp.signum().copysign(1.0);
+            temp = temp.signum();
         }
         temp.acos()
     } else {
@@ -184,7 +184,7 @@ pub fn rv2coe(
     let omega = if magn > small {
         let mut temp = nbar[0] / magn;
         if temp.abs() > 1.0 {
-            temp = temp.signum().copysign(1.0);
+            temp = temp.signum();
         }
         let mut omega = temp.acos();
         if nbar[1] < 0.0 {
@@ -232,7 +232,7 @@ pub fn rv2coe(
     let lonper = if ecc > small && typeorbit == OrbitType::Ee {
         let mut temp = ebar[0] / ecc;
         if temp.abs() > 1.0 {
-            temp = temp.signum().copysign(1.0);
+            temp = temp.signum();
         }
         let mut lonper = temp.acos();
         if ebar[1] < 0.0 {
@@ -250,7 +250,7 @@ pub fn rv2coe(
     let truelon = if magr > small && typeorbit == OrbitType::Ce {
         let mut temp = r[0] / magr;
         if temp.abs() > 1.0 {
-            temp = temp.signum().copysign(1.0);
+            temp = temp.signum();
         }
         let mut truelon = temp.acos();
         if r[1] < 0.0 {
@@ -366,6 +366,24 @@ mod tests {
         let y = [0.0_f64, 1.0, 0.0];
         let theta = angle(&x, &y);
         approx(theta, PI / 2.0, 1e-12);
+    }
+
+    #[test]
+    fn angle_clamps_negative_overflow_to_pi() {
+        // Constructed pair where raw cosine is slightly less than -1 due to
+        // floating-point roundoff: -1.0000000000000002.
+        let vec1 = [
+            9.311641074795974e-162_f64,
+            7.565238626095489e+92_f64,
+            2.586709429845379e+89_f64,
+        ];
+        let vec2 = [
+            8.46530716588426e-91_f64,
+            -7.565238626095482e+92_f64,
+            -2.5867094298453815e+89_f64,
+        ];
+        let theta = angle(&vec1, &vec2);
+        approx(theta, PI, 1e-12);
     }
 
     #[test]
