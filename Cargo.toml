@@ -1,8 +1,11 @@
 [package]
-name = "SGP4-Rust"
-version = "0.1.0"
+name = "sgp4-rust"
+version = "0.2.0"
 edition = "2024"
+description = "SGP4/SDP4 satellite propagation, ported from Vallado's reference implementation"
+readme = "README.md"
+keywords = ["sgp4", "satellite", "orbit", "tle", "astronomy"]
+categories = ["science", "aerospace"]
 
 [dependencies]
-chrono = "0.4.42"
-log = "0.4.28"
+chrono = { version = "0.4.42", default-features = false, features = ["std"] }
